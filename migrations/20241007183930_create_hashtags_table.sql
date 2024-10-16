@@ -1,0 +1,4 @@
+CREATE TABLE hashtags (
+    id SERIAL PRIMARY KEY,
+    tag VARCHAR(255) UNIQUE NOT NULL
+);

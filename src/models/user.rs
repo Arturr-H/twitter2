@@ -1,0 +1,309 @@
+/* Imports */
+use std::{future::{ready, Future, Ready}, pin::Pin, sync::Arc};
+use actix_web::{http::StatusCode, web::{self, Data}, FromRequest};
+use rand::{thread_rng, Rng};
+use regex::Regex;
+use serde::Serialize;
+use sha2::{Sha256, Digest};
+use sqlx::{prelude::FromRow, types::chrono::{self, NaiveDateTime}, PgPool};
+use unicode_segmentation::UnicodeSegmentation;
+use crate::{error::Error, middleware::auth::UserClaims, utils::logger::log, AppData};
+
+/* Constants */
+const EMAIL_REGEX: &'static str = r#"^[\w\.-]+@[\w\.-]+\.\w+$"#;
+const HANDLE_REGEX: &'static str = "^[a-z0-9.]+$";
+const HANDLE_MAX_LEN: usize = 15;
+const HANDLE_MIN_LEN: usize = 3;
+const DISPLAYNAME_MAX_LEN: usize = 24;
+const DISPLAYNAME_MIN_LEN: usize = 1;
+const PASSWORD_MAX_LEN: usize = 45;
+const PASSWORD_MIN_LEN: usize = 7;
+const PEPPER: &'static str = env!("PEPPER");
+
+#[derive(Debug, FromRow, sqlx::Type)]
+pub struct User {
+    user_id: i64,
+
+    /// Their @username handle
+    handle: String,
+
+    /// Their displayname that can contain e.g
+    /// emojies etc.
+    displayname: String,
+
+    joined: chrono::NaiveDateTime,
+    email: String,
+
+    /// SHA-256(pass + salt + pepper)
+    /// #[serde(skip)]
+    hash: Vec<u8>,
+    salt: String,
+}
+
+/// The version of the user struct that does not 
+/// spoil any sensitive data
+#[derive(Debug, FromRow, sqlx::Type, Serialize)]
+pub struct UserInfo {
+    user_id: i64,
+    handle: String,
+    displayname: String,
+}
+
+impl User {
+    /// Try to create a user. Will fail if:
+    /// 
+    /// - Email invalid, or in use
+    /// - Handle in valid or in use
+    /// - Displayname invalid
+    /// - Password invalid or too weak
+    async fn try_create(
+        pool: &PgPool, handle: String, displayname: String,
+        email: String, password: String, pepper: &str
+    ) -> Result<Self, Error> {
+        Self::handle_valid(pool, &handle).await?;
+        log("try_create", "Handle       valid");
+        Self::displayname_valid(&displayname)?;
+        log("try_create", "Displayname  valid");
+        Self::email_valid(pool, &email).await?;
+        log("try_create", "Email        valid");
+        Self::password_valid(&password)?;
+        log("try_create", "Password     valid");
+
+        let user_id = 0;
+        let salt = Self::generate_salt();
+        let hash = Self::hash_password(&password, &salt);
+
+        Ok(Self {
+            // Not yet known, will be determined
+            // after inserting
+            user_id,
+            handle,
+            displayname,
+            joined: NaiveDateTime::MIN,
+            email,
+            hash,
+            salt
+        })
+    }
+
+    /// Retrieve user from db via user_id
+    pub async fn from_id(pool: &PgPool, user_id: i64) -> Option<Self> {
+        sqlx::query_as!(User, "SELECT * FROM users WHERE users.user_id = $1", user_id)
+            .fetch_optional(pool)
+            .await.ok().flatten()
+    }
+
+    /// Create account
+    /// Ok yields JWT, Err yields error message
+    pub async fn create_account(
+        pool: &PgPool, handle: String, displayname: String,
+        email: String, password: String, 
+    ) -> Result<String, Error> {
+        log("create_account", "Trying to create");
+        dbg!(&displayname, &email, &password);
+        let user = Self::try_create(pool, handle.clone(), displayname, email, password, PEPPER).await?;
+        log("create_account", "Inserting");
+
+        dbg!(&user);
+
+        sqlx::query_scalar!(r#"
+            INSERT INTO users
+            (handle, displayname, email, hash, salt)
+            VALUES ($1, $2, $3, $4, $5) RETURNING users.user_id"#,
+            user.handle, user.displayname, user.email, user.hash, user.salt
+        )
+        .fetch_one(pool)
+        .await
+        .map_err(|_| Error::new("Could not create account"))
+
+        /* For Result::Ok(_) */
+        .and_then(|user_id| {
+            UserClaims::new(handle, user_id)
+                .to_string().ok_or(Error::new("Could not create JWT token"))
+        })
+    }
+
+    /// Try login with password
+    /// ?: Maybe do something to avoid hackers being able 
+    /// ?: differentiate between invalid password and invalid
+    /// ?: email - because that can help attackers brute
+    /// ?: forcing passwords / getting email addresses
+    pub async fn login(pool: &PgPool, email: &String, password: &String) -> Result<String, Error> {
+        log("login", "Logging in");
+        dbg!(password);
+        dbg!(email);
+        let invalid_pass_or_email = Error::new("Invalid email or password");
+        let user = match sqlx::query_as!(Self,
+            "SELECT * FROM users WHERE users.email = $1", email
+        ).fetch_optional(pool).await {
+            Ok(e) => match e {
+                Some(row) => row,
+                None => return Err(invalid_pass_or_email)
+            },
+            Err(e) => return Err(Error::new(e))
+        };
+
+        log("login", "Checking hash");
+        let hash = Self::hash_password(password, &user.salt);
+        if user.hash == hash {
+            log("login", "Hash matched - trying to return JWT");
+            let claims = UserClaims::new(user.handle, user.user_id);
+            match claims.to_string() {
+                Some(e) => Ok(e),
+                None => Err(Error::new("Could not generate JWT token"))
+            }
+        }else {
+            Err(invalid_pass_or_email)
+        }        
+    }
+
+    /// Check if JWT is valid and return user if found via appdata postgres pool
+    async fn from_appdata(pool: &AppData, jwt: String) -> Result<Self, Error> {
+        log("from_jwt", "Checking JWT validation");
+        let user_claims = UserClaims::is_valid(&jwt)?;
+        let user_id = user_claims.claims.user_id;
+
+        log("from_jwt", "Retrieving user from db");
+        sqlx::query_as!(Self,
+            "SELECT * FROM users WHERE users.user_id = $1", user_id
+        )
+        .fetch_optional(&pool.db).await
+        .map_err(Error::new)
+        .and_then(|e| e.ok_or(Error::new("User not found")))
+    }
+
+    /// Length checks and char checks for handle (username)
+    async fn handle_valid(pool: &PgPool, handle: &String) -> Result<(), Error> {
+        // We won't need to do UnicodeSegmentation::graphemes here
+        // like we do in the `displayname_valid` method because
+        // the regex has strict rules on what characters are ok.
+        let len = handle.len();
+        if len < HANDLE_MIN_LEN {
+            return Err(Error::new("Handle must be at least 3 characters long"))
+        }if len > HANDLE_MAX_LEN {
+            return Err(Error::new("Handle must be less than 15 characters long"))
+        }
+
+        let handle_rgx = Regex::new(HANDLE_REGEX).unwrap();
+        if !handle_rgx.is_match(handle) {
+            return Err(Error::new("Handle must only contain either characters a-z, 0-9 or a \".\""))
+        }
+
+        match Self::handle_occupied(pool, handle).await? {
+            // Not occupied
+            false => Ok(()),
+
+            // Occupied
+            true => Err(Error::new("Handle occupied"))
+        }
+    }
+
+    /// Checks if handle is in use 
+    async fn handle_occupied(pool: &PgPool, handle: &String) -> Result<bool, Error> {
+        let result = sqlx::query!("SELECT FROM users WHERE handle = $1", handle)
+            .fetch_optional(pool).await;
+
+        match result {
+            Ok(e) => Ok(e.is_some()),
+            Err(_) => Err(Error::new("Could not check for occupation"))
+        }
+    }
+    /// Checks if email is in use 
+    async fn email_occupied(pool: &PgPool, email: &String) -> Result<bool, Error> {
+        let result = sqlx::query!("SELECT FROM users WHERE email = $1", email)
+            .fetch_optional(pool).await;
+
+        match result {
+            Ok(e) => Ok(e.is_some()),
+            Err(_) => Err(Error::new("Could not check for occupation"))
+        }
+    }
+
+    /// Displayname length checks
+    fn displayname_valid(displayname: &String) -> Result<(), Error> {
+        let len = UnicodeSegmentation::graphemes(displayname.as_str(), true).count();
+        if len < DISPLAYNAME_MIN_LEN {
+            return Err(Error::new(format!("Displayname must be at least {} characters long", DISPLAYNAME_MIN_LEN)))
+        }if len > DISPLAYNAME_MAX_LEN {
+            return Err(Error::new(format!("Displayname must be less than {} characters long", DISPLAYNAME_MAX_LEN)))
+        }
+
+        Ok(())
+    }
+    /// Password length checks
+    fn password_valid(password: &String) -> Result<(), Error> {
+        let len = UnicodeSegmentation::graphemes(password.as_str(), true).count();
+        if len < PASSWORD_MIN_LEN {
+            return Err(Error::new(format!("Password must be at least {} characters long", PASSWORD_MIN_LEN)))
+        }if len > PASSWORD_MAX_LEN {
+            return Err(Error::new(format!("Password must be less than {} characters long", PASSWORD_MAX_LEN)))
+        }
+
+        Ok(())
+    }
+
+    /// Email regex checks
+    async fn email_valid(pool: &PgPool, email: &String) -> Result<(), Error> {
+        let regex = Regex::new(EMAIL_REGEX).unwrap();
+        match regex.is_match(&email) {
+            true => {
+                match Self::email_occupied(pool, email).await? {
+                    true => Err(Error::new("Email already in use")),
+                    false => Ok(())
+                }
+            },
+            false => Err(Error::new("Email is invalid"))
+        }
+    }
+
+    /// Hashes `password` with salt and pepper
+    fn hash_password(password: &String, salt: &String) -> Vec<u8> {
+        let inner = password.to_owned() + salt + PEPPER;
+        let mut hasher = Sha256::new();
+        hasher.update(inner);
+        hasher.finalize()[..].to_owned()
+    }
+
+    /// Generates a salt which is stored in the user table
+    fn generate_salt() -> String {
+        let chars = "abcdefghijklmnopqrstuvwxyz1234567890+-.,;:!\"#€%&/()=?*".chars().collect::<Vec<char>>();
+        let mut rng = thread_rng();
+        let length = rng.gen_range(25..=35);
+        let mut end = String::with_capacity(length);
+        for _ in 0..length {
+            end.push(chars[rng.gen_range(0..chars.len())])
+        }
+        end
+    }
+
+    // Getters
+    pub fn user_id(&self) -> i64 { self.user_id }
+}
+
+impl FromRequest for User {
+    type Error = Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
+
+    fn from_request(req: &actix_web::HttpRequest, payload: &mut actix_web::dev::Payload) -> Self::Future {
+        let auth_header = req.headers().get("Authorization").cloned();
+        let appdata = match req.app_data::<web::Data<AppData>>() {
+            Some(e) => e.clone(),
+            None => return Box::pin(async { Err(Error::new_with_code(
+                "Internal server error (appdata retrieval from request)",
+                StatusCode::INTERNAL_SERVER_ERROR
+            ))})
+        };
+
+        Box::pin(async move {
+            if let Some(header_value) = auth_header {
+                if let Ok(header_str) = header_value.to_str() {
+                    if let Some(token) = header_str.strip_prefix("Bearer ") {
+                        return User::from_appdata(appdata.get_ref(), token.to_string()).await
+                    }
+                }
+            }
+            
+            Err(Error::new_with_code("Unauthorized", StatusCode::UNAUTHORIZED))
+        })
+    }
+}

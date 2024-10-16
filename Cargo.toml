@@ -1,0 +1,30 @@
+[package]
+name = "twitter2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+## Web framework
+actix-web = "4.9.0"
+actix-cors = "0.7.0"
+
+## Env
+lazy_static = "1.5.0"
+
+## Hashing & Auth
+rand = "0.8.5"
+sha2 = "0.10.8"
+jsonwebtoken = "9.3.0"
+
+## Database interaction
+sqlx = { version = "0.8.2", features = ["runtime-tokio", "tls-rustls-ring", "postgres", "chrono"] }
+tokio = { version = "1.40.0", features = ["rt-multi-thread", "macros"] }
+
+## Serialization
+serde = "1.0.210"
+serde_derive = "1.0.210"
+serde_json = "1.0.128"
+
+## Other
+regex = "1.11.0"
+unicode-segmentation = "1.12.0"

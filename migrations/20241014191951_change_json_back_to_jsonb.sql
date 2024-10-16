@@ -1,0 +1,2 @@
+ALTER TABLE posts
+ALTER COLUMN citation TYPE JSONB USING citation::JSONB;
