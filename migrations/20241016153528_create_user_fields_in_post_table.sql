@@ -1,0 +1,3 @@
+ALTER TABLE posts
+ADD COLUMN handle TEXT NOT NULL,
+ADD COLUMN displayname TEXT NOT NULL;

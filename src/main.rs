@@ -14,7 +14,7 @@ use std::error::Error;
 use models::{post::Post, user::User};
 use sqlx::PgPool;
 use utils::logger::log;
-use handlers::{auth, hashtag, post};
+use handlers::{auth, bookmarks, hashtag, post};
 
 /* Constants */
 const DATABASE_URL: &'static str = env!("DATABASE_URL");
@@ -56,6 +56,7 @@ async fn main() -> () {
                 .service(post::set_bookmark)
                 .service(post::feed)
                 .service(post::post_by_id)
+                .service(bookmarks::bookmarks)
                 // .service(post::reference)
             )
             .service(web::scope("/hashtag")
