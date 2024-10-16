@@ -2,7 +2,7 @@
 use actix_web::{get, post, route, web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
-use crate::{error::Error, middleware::auth::UserClaims, models::{post::{Post, PostBoolean}, post_citation::PostCitation, user::{User, UserInfo}}, utils::logger::log, AppData};
+use crate::{error::Error, middleware::auth::UserClaims, models::{post::{Post, PostBoolean, PostWithUser}, post_citation::PostCitation, user::{User, UserInfo}}, utils::logger::log, AppData};
 
 /* Structs */
 #[derive(Deserialize)]
@@ -16,14 +16,6 @@ struct SetBooleanRequest {
     to: bool,
     post_id: i32
 }
-#[derive(Serialize, FromRow, sqlx::Type)]
-pub struct PostWithUser {
-    pub post: Post,
-    pub user: UserInfo,
-    pub liked: bool,
-    pub bookmarked: bool,
-}
-
 
 /// Publish a new post
 #[post("/publish")]
@@ -73,7 +65,7 @@ pub async fn feed(
     // p.created_at DESC;
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.id, posts.content, posts.total_likes, posts.total_replies, posts.poster_id, posts.replies_to, posts.citation, posts.created_at) AS "post!: Post",
+            (posts.*, NULL) AS "post!: Post",
             (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
 
             -- Add boolean for if liked or bookmarked
@@ -103,7 +95,7 @@ pub async fn post_by_id(
 ) -> impl Responder {
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.id, posts.content, posts.total_likes, posts.total_replies, posts.poster_id, posts.replies_to, posts.citation, posts.created_at) AS "post!: Post",
+            (posts.*, NULL) AS "post!: Post",
             (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
 
             -- Add boolean for if liked or bookmarked
@@ -125,35 +117,3 @@ pub async fn post_by_id(
         serde_json::to_string(&e).unwrap()
     )
 }
-
-// /// Reference a part of a post.
-// /// Example:
-// /// "Minim quis deserunt culpa ex nulla ex ipsum culpa culpa aliquip"
-// /// reference 11-19 => ... "deserunt" ...
-// #[get("/reference/{post_id}/{start}-{end}")]
-// pub async fn reference(
-//     path: web::Path<(i32, i32, i32)>,
-//     data: web::Data<AppData>
-// ) -> impl Responder {
-//     let (post_id, start_ref, end_ref) = path.into_inner();
-
-//     if start_ref >= end_ref {
-//         return Err(Error::new("Invalid reference range"));
-//     }
-
-//     let post = sqlx::query_as!(Post, r#"
-//         SELECT * FROM posts WHERE posts.id = $1;
-//     "#, post_id)
-//         .fetch_one(&data.db).await
-//         .map_err(Error::new)?;
-
-//     let content = post.content;
-//     if end_ref > (content.len() - 1) as i32 {
-//         return Err(Error::new("Invalid reference (out of range)"));
-//     }
-
-//     PostCitation::new(content, start_ref, end_ref)
-//         .to_json()
-//         .ok_or(Error::new("Cant serialize post citation JSON"))
-//         .map(|e| HttpResponse::Ok().json(e))
-// }

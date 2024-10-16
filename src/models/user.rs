@@ -278,6 +278,8 @@ impl User {
 
     // Getters
     pub fn user_id(&self) -> i64 { self.user_id }
+    pub fn displayname(&self) -> &String { &self.displayname }
+    pub fn handle(&self) -> &String { &self.handle }
 }
 
 impl FromRequest for User {

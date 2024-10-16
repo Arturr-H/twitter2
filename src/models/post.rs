@@ -3,7 +3,7 @@ use regex::Regex;
 use serde::Serialize;
 use sqlx::{prelude::FromRow, types::chrono::{self, NaiveDateTime}, PgPool};
 use crate::error::Error;
-use super::post_citation::PostCitation;
+use super::{post_citation::PostCitation, user::{User, UserInfo}};
 
 /* Post boolean for keeping track of liked, bookmarked or not */
 pub enum PostBoolean { Like, Bookmark }
@@ -28,12 +28,18 @@ pub struct Post {
     #[serde(skip)]
     pub created_at: chrono::DateTime<chrono::Utc>
 }
+#[derive(Serialize, FromRow, sqlx::Type)]
+pub struct PostWithUser {
+    pub post: Post,
+    pub user: UserInfo,
+    pub liked: bool,
+    pub bookmarked: bool,
+}
 
 impl Post {
     /// Used before inserting, with id set temporarily
     /// to zero.
     pub fn new(poster_id: i64, content: String, replies_to: Option<i64>, citation: Option<PostCitation>) -> Self {
-        dbg!(&citation);
         let citation = citation.and_then(|e| serde_json::to_value(e).ok());
         Post {
             content,

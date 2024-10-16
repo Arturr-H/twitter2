@@ -6,7 +6,7 @@
 /* Imports */
 use actix_web::{get, web, Responder};
 use serde::Serialize;
-use crate::{error::Error, models::{post::Post, user::{User, UserInfo}}, AppData, handlers::post::PostWithUser};
+use crate::{error::Error, models::{post::Post, user::{User, UserInfo}}, AppData, models::post::PostWithUser};
 
 /* Structs */
 #[derive(Serialize)]
@@ -23,7 +23,7 @@ pub async fn posts_by_hashtag(
 ) -> impl Responder {
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.id, posts.content, posts.total_likes, posts.total_replies, posts.poster_id, posts.replies_to, posts.citation, posts.created_at) AS "post!: Post",
+            (posts.*, NULL) AS "post!: Post",
             (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
 
             -- Add boolean for if liked or bookmarked
