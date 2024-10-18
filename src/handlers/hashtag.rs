@@ -23,24 +23,19 @@ pub async fn posts_by_hashtag(
 ) -> impl Responder {
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.*, NULL) AS "post!: Post",
-            (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
-
-            -- Add boolean for if liked or bookmarked
-            COALESCE(likes.user_id IS NOT NULL, false) AS "liked!: bool",
-            COALESCE(bookmarks.user_id IS NOT NULL, false) AS "bookmarked!: bool"
+            posts.*,
+            is_not_null(post_likes.user_id) AS liked,
+            is_not_null(post_bookmarks.user_id) AS bookmarked
         FROM
-            posts
-            JOIN users ON posts.poster_id = users.user_id
-            LEFT JOIN likes
-                ON posts.id = likes.post_id AND likes.user_id = $1
-            LEFT JOIN bookmarks
-                ON posts.id = bookmarks.post_id AND bookmarks.user_id = $1
+            get_posts posts
+            LEFT JOIN post_likes     ON post_likes.post_id     = posts.id AND post_likes.user_id     = $1
+            LEFT JOIN post_bookmarks ON post_bookmarks.post_id = posts.id AND post_bookmarks.user_id = $1
+            
             JOIN post_hashtags ph ON posts.id = ph.post_id
             JOIN hashtags h ON ph.hashtag_id = h.id
         WHERE
             h.tag = $2;
-    "#, user.user_id(), path.into_inner())
+    "#, user.id(), path.into_inner())
         .fetch_all(&data.db)
         .await
         .map_err(Error::new)

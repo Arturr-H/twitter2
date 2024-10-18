@@ -16,18 +16,18 @@ lazy_static::lazy_static! {
 #[derive(Deserialize, Serialize)]
 pub struct UserClaims {
     pub handle: String,
-    pub user_id: i64,
+    pub id: i64,
     pub exp: usize
 }
 
 impl UserClaims {
-    /// `user_id` needs to be the `SERIAL PRIMARY KEY` retrieved
+    /// `id` needs to be the `SERIAL PRIMARY KEY` retrieved
     /// from psotgresql
-    pub fn new(handle: String, user_id: i64) -> Self {
+    pub fn new(handle: String, id: i64) -> Self {
         // `JWT_TOKEN_MAXAGE` days
         let next = SystemTime::now() + Duration::from_secs(*JWT_TOKEN_MAXAGE as u64 * 24 * 60 * 60);
         let exp = next.duration_since(SystemTime::UNIX_EPOCH).unwrap_or(Duration::default()).as_secs() as usize;
-        Self { handle, exp, user_id }
+        Self { handle, exp, id }
     }
 
     /// Returns claims if valid

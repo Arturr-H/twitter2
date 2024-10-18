@@ -24,7 +24,7 @@ pub async fn publish(
     body: web::Json<PublishRequest>, user: User
 ) -> impl Responder {
     let body = body.into_inner();
-    Post::new(user.user_id(), body.content, body.replies_to, body.citation)
+    Post::new(user.id(), body.content, body.replies_to, body.citation)
         .insert_into(&data.db)
         .await
         .map_err(Error::new)
@@ -37,7 +37,7 @@ pub async fn set_like(
     req: HttpRequest, data: web::Data<AppData>,
     body: web::Json<SetBooleanRequest>, user: User
 ) -> impl Responder {
-    Post::set_boolean(PostBoolean::Like, &data.db, body.to, user.user_id(), body.post_id.clone())
+    Post::set_boolean(PostBoolean::Like, &data.db, body.to, user.id(), body.post_id.clone())
         .await
         .map(|_| HttpResponse::Ok())
 }
@@ -48,7 +48,7 @@ pub async fn set_bookmark(
     req: HttpRequest, data: web::Data<AppData>,
     body: web::Json<SetBooleanRequest>, user: User
 ) -> impl Responder {
-    Post::set_boolean(PostBoolean::Bookmark, &data.db, body.to, user.user_id(), body.post_id.clone())
+    Post::set_boolean(PostBoolean::Bookmark, &data.db, body.to, user.id(), body.post_id.clone())
         .await
         .map(|_| HttpResponse::Ok())
 }
@@ -61,24 +61,23 @@ pub async fn feed(
 ) -> impl Responder {
     log("feed", "Retrieving feed");
 
+    struct Hashtag {
+        id: i64,
+        tag: String
+    }
     // ORDER BY 
     // p.created_at DESC;
+    // String::new()
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.*, NULL) AS "post!: Post",
-            (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
-
-            -- Add boolean for if liked or bookmarked
-            COALESCE(likes.user_id IS NOT NULL, false) AS "liked!: bool",
-            COALESCE(bookmarks.user_id IS NOT NULL, false) AS "bookmarked!: bool"
+            posts.*,
+            is_not_null(post_likes.user_id) AS liked,
+            is_not_null(post_bookmarks.user_id) AS bookmarked
         FROM
-            posts
-            JOIN users ON posts.poster_id = users.user_id
-            LEFT JOIN likes
-                ON posts.id = likes.post_id AND likes.user_id = $1
-            LEFT JOIN bookmarks
-                ON posts.id = bookmarks.post_id AND bookmarks.user_id = $1;
-    "#, user.user_id())
+            get_posts posts
+            LEFT JOIN post_likes     ON post_likes.post_id     = posts.id AND post_likes.user_id     = $1
+            LEFT JOIN post_bookmarks ON post_bookmarks.post_id = posts.id AND post_bookmarks.user_id = $1
+    "#, user.id())
         .fetch_all(&data.db)
         .await
         .map_err(Error::new)
@@ -91,25 +90,19 @@ pub async fn feed(
 #[get("/id/{id}")]
 pub async fn post_by_id(
     req: HttpRequest, data: web::Data<AppData>,
-    user: User, path: web::Path<i32>
+    user: User, path: web::Path<i64>
 ) -> impl Responder {
     sqlx::query_as!(PostWithUser, r#"
         SELECT
-            (posts.*, NULL) AS "post!: Post",
-            (users.user_id, users.handle, users.displayname) AS "user!: UserInfo",
-
-            -- Add boolean for if liked or bookmarked
-            COALESCE(likes.user_id IS NOT NULL, false) AS "liked!: bool",
-            COALESCE(bookmarks.user_id IS NOT NULL, false) AS "bookmarked!: bool"
+            posts.*,
+            is_not_null(post_likes.user_id) AS liked,
+            is_not_null(post_bookmarks.user_id) AS bookmarked
         FROM
-            posts
-            JOIN users ON posts.poster_id = users.user_id
-            LEFT JOIN likes
-                ON posts.id = likes.post_id AND likes.user_id = $1
-            LEFT JOIN bookmarks
-                ON posts.id = bookmarks.post_id AND bookmarks.user_id = $1
-            WHERE posts.id = $2;
-    "#, user.user_id(), path.into_inner())
+            get_posts posts
+            LEFT JOIN post_likes     ON post_likes.post_id     = posts.id AND post_likes.user_id     = $1
+            LEFT JOIN post_bookmarks ON post_bookmarks.post_id = posts.id AND post_bookmarks.user_id = $1
+        WHERE posts.id = $2;
+    "#, user.id(), path.into_inner())
     .fetch_one(&data.db)
     .await
     .map_err(Error::new)

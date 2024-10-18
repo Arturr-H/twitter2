@@ -11,7 +11,7 @@ pub enum PostBoolean { Like, Bookmark }
 #[derive(FromRow, Debug, Default, Serialize, sqlx::Type)]
 pub struct Post {
     /// Primary key
-    pub id: i32,
+    pub id: i64,
 
     /// The text content of this post. Can
     /// contain links etc.
@@ -30,10 +30,26 @@ pub struct Post {
 }
 #[derive(Serialize, FromRow, sqlx::Type)]
 pub struct PostWithUser {
-    pub post: Post,
-    pub user: UserInfo,
-    pub liked: bool,
-    pub bookmarked: bool,
+    /* Post info */
+    pub id: Option<i64>,
+    pub content: Option<String>,
+    pub total_likes: Option<i64>,
+    pub total_replies: Option<i64>,
+    pub poster_id: Option<i64>,
+    pub replies_to: Option<Option<i64>>,
+    pub citation: Option<Option<serde_json::Value>>,
+
+    #[serde(skip)]
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+
+    /* User info */
+    pub user_id: Option<i64>,
+    pub displayname: Option<String>,
+    pub handle: Option<String>,
+
+    /* Post metadata related to user */
+    pub liked: Option<bool>,
+    pub bookmarked: Option<bool>,
 }
 
 impl Post {
@@ -55,7 +71,7 @@ impl Post {
         let (hashtags, _) = self.hashtags_and_mentions();
 
         // Insert post
-        let post_id: i32 = sqlx::query_scalar!(r#"
+        let post_id: i64 = sqlx::query_scalar!(r#"
             INSERT INTO posts
             (content, poster_id, replies_to, citation) VALUES ($1, $2, $3, $4)
             returning id"#,
@@ -67,7 +83,7 @@ impl Post {
         // Insert hashtags
         for tag in hashtags {
             // Try to insert the hashtag, or get its ID if it exists
-            let hashtag_id: i32 = sqlx::query_scalar!(r#"
+            let hashtag_id: i64 = sqlx::query_scalar!(r#"
                 INSERT INTO hashtags (tag)
                 VALUES ($1)
                 ON CONFLICT (tag) DO UPDATE SET tag = excluded.tag
@@ -99,8 +115,8 @@ impl Post {
     /// post that will recieve a like if not already existing, same for bookmarks
     pub async fn set_boolean(b: PostBoolean, pool: &PgPool, to: bool, toggler_id: i64, post_id: i32) -> Result<(), Error> {
         let table_name = match b {
-            PostBoolean::Bookmark => "bookmarks",
-            PostBoolean::Like => "likes",
+            PostBoolean::Bookmark => "post_bookmarks",
+            PostBoolean::Like => "post_likes",
         };
 
         let is_enabled = sqlx::query(&format!(

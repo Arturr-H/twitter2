@@ -12,9 +12,9 @@ use crate::{error::Error, middleware::auth::UserClaims, utils::logger::log, AppD
 /* Constants */
 const EMAIL_REGEX: &'static str = r#"^[\w\.-]+@[\w\.-]+\.\w+$"#;
 const HANDLE_REGEX: &'static str = "^[a-z0-9.]+$";
-const HANDLE_MAX_LEN: usize = 15;
+const HANDLE_MAX_LEN: usize = 25;
 const HANDLE_MIN_LEN: usize = 3;
-const DISPLAYNAME_MAX_LEN: usize = 24;
+const DISPLAYNAME_MAX_LEN: usize = 50;
 const DISPLAYNAME_MIN_LEN: usize = 1;
 const PASSWORD_MAX_LEN: usize = 45;
 const PASSWORD_MIN_LEN: usize = 7;
@@ -22,7 +22,7 @@ const PEPPER: &'static str = env!("PEPPER");
 
 #[derive(Debug, FromRow, sqlx::Type)]
 pub struct User {
-    user_id: i64,
+    id: i64,
 
     /// Their @username handle
     handle: String,
@@ -31,7 +31,7 @@ pub struct User {
     /// emojies etc.
     displayname: String,
 
-    joined: chrono::NaiveDateTime,
+    joined: chrono::DateTime<chrono::Utc>,
     email: String,
 
     /// SHA-256(pass + salt + pepper)
@@ -69,26 +69,27 @@ impl User {
         Self::password_valid(&password)?;
         log("try_create", "Password     valid");
 
-        let user_id = 0;
+        let id = 0;
         let salt = Self::generate_salt();
         let hash = Self::hash_password(&password, &salt);
 
         Ok(Self {
             // Not yet known, will be determined
             // after inserting
-            user_id,
+            id,
+            joined: chrono::DateTime::from_timestamp_nanos(0),
+
             handle,
             displayname,
-            joined: NaiveDateTime::MIN,
             email,
             hash,
             salt
         })
     }
 
-    /// Retrieve user from db via user_id
-    pub async fn from_id(pool: &PgPool, user_id: i64) -> Option<Self> {
-        sqlx::query_as!(User, "SELECT * FROM users WHERE users.user_id = $1", user_id)
+    /// Retrieve user from db via id
+    pub async fn from_id(pool: &PgPool, id: i64) -> Option<Self> {
+        sqlx::query_as!(User, "SELECT * FROM users WHERE users.id = $1", id)
             .fetch_optional(pool)
             .await.ok().flatten()
     }
@@ -104,12 +105,10 @@ impl User {
         let user = Self::try_create(pool, handle.clone(), displayname, email, password, PEPPER).await?;
         log("create_account", "Inserting");
 
-        dbg!(&user);
-
         sqlx::query_scalar!(r#"
             INSERT INTO users
             (handle, displayname, email, hash, salt)
-            VALUES ($1, $2, $3, $4, $5) RETURNING users.user_id"#,
+            VALUES ($1, $2, $3, $4, $5) RETURNING users.id"#,
             user.handle, user.displayname, user.email, user.hash, user.salt
         )
         .fetch_one(pool)
@@ -130,8 +129,7 @@ impl User {
     /// ?: forcing passwords / getting email addresses
     pub async fn login(pool: &PgPool, email: &String, password: &String) -> Result<String, Error> {
         log("login", "Logging in");
-        dbg!(password);
-        dbg!(email);
+        
         let invalid_pass_or_email = Error::new("Invalid email or password");
         let user = match sqlx::query_as!(Self,
             "SELECT * FROM users WHERE users.email = $1", email
@@ -147,7 +145,7 @@ impl User {
         let hash = Self::hash_password(password, &user.salt);
         if user.hash == hash {
             log("login", "Hash matched - trying to return JWT");
-            let claims = UserClaims::new(user.handle, user.user_id);
+            let claims = UserClaims::new(user.handle, user.id);
             match claims.to_string() {
                 Some(e) => Ok(e),
                 None => Err(Error::new("Could not generate JWT token"))
@@ -161,11 +159,11 @@ impl User {
     async fn from_appdata(pool: &AppData, jwt: String) -> Result<Self, Error> {
         log("from_jwt", "Checking JWT validation");
         let user_claims = UserClaims::is_valid(&jwt)?;
-        let user_id = user_claims.claims.user_id;
+        let id = user_claims.claims.id;
 
         log("from_jwt", "Retrieving user from db");
         sqlx::query_as!(Self,
-            "SELECT * FROM users WHERE users.user_id = $1", user_id
+            "SELECT * FROM users WHERE users.id = $1", id
         )
         .fetch_optional(&pool.db).await
         .map_err(Error::new)
@@ -277,7 +275,7 @@ impl User {
     }
 
     // Getters
-    pub fn user_id(&self) -> i64 { self.user_id }
+    pub fn id(&self) -> i64 { self.id }
     pub fn displayname(&self) -> &String { &self.displayname }
     pub fn handle(&self) -> &String { &self.handle }
 }
