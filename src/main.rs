@@ -14,7 +14,7 @@ use std::error::Error;
 use models::{post::Post, user::User};
 use sqlx::PgPool;
 use utils::logger::log;
-use handlers::{auth, /* bookmarks, */ feed,/*  hashtag, post, */ user};
+use handlers::{auth, bookmarks, feed, post, hashtag, user};
 
 /* Constants */
 const DATABASE_URL: &'static str = env!("DATABASE_URL");
@@ -30,15 +30,8 @@ async fn main() -> () {
 
     log("HttpServer", "Initializing");
     HttpServer::new(move || {
-        let cors = Cors::permissive()
-            // .allowed_origin("http://0.0.0.0:8080")
-            /*.allowed_methods(vec!["GET", "POST"])
-            .allowed_headers(vec![
-                header::CONTENT_TYPE,
-                header::AUTHORIZATION,
-                header::ACCEPT,
-            ])
-            .supports_credentials()*/;
+        // TODO: Better CORS implemntation than this...
+        let cors = Cors::permissive();
 
         App::new()
             .wrap(cors)
@@ -54,21 +47,20 @@ async fn main() -> () {
                 .service(user::profile_image_self)
                 .service(user::set_following)
             )
-/*             .service(web::scope("/post")
+            .service(web::scope("/post")
                 .service(post::publish)
                 .service(post::set_like)
                 .service(post::set_bookmark)
                 .service(post::post_by_id)
                 .service(bookmarks::bookmarks)
-            ) */
+            )
             .service(web::scope("/feed")
                 .service(feed::newest)
+                .service(web::scope("/hashtag")
+                    .service(hashtag::posts_by_hashtag)
+                    .service(hashtag::trending_hashtags)
+                )
             )
-/*            .service(web::scope("/hashtag")
-                .service(hashtag::posts_by_hashtag)
-                .service(hashtag::trending_hashtags)
-            ) */
-
     })
     .bind(("127.0.0.1", 8080))
     .unwrap().run().await.unwrap();
