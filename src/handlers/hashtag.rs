@@ -22,15 +22,7 @@ pub async fn posts_by_hashtag(
     user: User
 ) -> impl Responder {
     sqlx::query_as!(PostWithUser, r#"
-        SELECT
-            posts.*,
-            is_not_null(post_likes.user_id) AS liked,
-            is_not_null(post_bookmarks.user_id) AS bookmarked
-        FROM
-            get_posts posts
-            LEFT JOIN post_likes     ON post_likes.post_id     = posts.id AND post_likes.user_id     = $1
-            LEFT JOIN post_bookmarks ON post_bookmarks.post_id = posts.id AND post_bookmarks.user_id = $1
-            
+        SELECT posts.* FROM get_posts_default($1) posts
             JOIN post_hashtags ph ON posts.id = ph.post_id
             JOIN hashtags h ON ph.hashtag_id = h.id
         WHERE
