@@ -1,14 +1,15 @@
 /* Imports */
 use regex::Regex;
 use serde::Serialize;
-use sqlx::{prelude::FromRow, types::chrono::{self, NaiveDateTime}, PgPool};
+use sqlx::{prelude::FromRow, types::chrono::NaiveDateTime, PgPool};
 use crate::error::Error;
 use super::{post_citation::PostCitation, user::{User, UserInfo}};
+use chrono::serde::ts_milliseconds_option;
 
 /* Post boolean for keeping track of liked, bookmarked or not */
 pub enum PostBoolean { Like, Bookmark }
 
-#[derive(FromRow, Debug, Default, Serialize, sqlx::Type)]
+#[derive(FromRow, Debug, Default, sqlx::Type)]
 pub struct Post {
     /// Primary key
     pub id: i64,
@@ -25,7 +26,6 @@ pub struct Post {
     pub replies_to: Option<i64>,
     pub citation: Option<serde_json::Value>,
 
-    #[serde(skip)]
     pub created_at: chrono::DateTime<chrono::Utc>
 }
 #[derive(Serialize, FromRow, sqlx::Type)]
@@ -39,7 +39,7 @@ pub struct PostWithUser {
     pub replies_to: Option<Option<i64>>,
     pub citation: Option<Option<serde_json::Value>>,
 
-    #[serde(skip)]
+    #[serde(with = "ts_milliseconds_option")]
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
 
     /* User info */
@@ -235,10 +235,5 @@ impl Post {
         if ish || ism { set_seeking(&mut curr_char_buf, &mut ish, &mut ism) }
 
         (hashtags, mentions)
-    }
-
-    /// Converts this to stringified JSON
-    pub fn json(&self) -> Option<String> {
-        serde_json::to_string(self).ok()
     }
 }
