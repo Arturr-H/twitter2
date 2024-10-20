@@ -1,6 +1,7 @@
 /* Imports */
 use std::{future::{ready, Future, Ready}, pin::Pin, sync::Arc};
-use actix_web::{http::StatusCode, web::{self, Data}, FromRequest};
+use actix_files::NamedFile;
+use actix_web::{http::{header::ContentType, StatusCode}, web::{self, Data}, FromRequest, HttpRequest, HttpResponse, Responder};
 use rand::{thread_rng, Rng};
 use regex::Regex;
 use serde::Serialize;
@@ -20,7 +21,7 @@ const PASSWORD_MAX_LEN: usize = 45;
 const PASSWORD_MIN_LEN: usize = 7;
 const PEPPER: &'static str = env!("PEPPER");
 
-#[derive(Debug, FromRow, sqlx::Type)]
+#[derive(Debug)]
 pub struct User {
     id: i64,
 
@@ -38,16 +39,26 @@ pub struct User {
     /// #[serde(skip)]
     hash: Vec<u8>,
     salt: String,
+
+    followers: i32
 }
 
 /// The version of the user struct that does not 
 /// spoil any sensitive data
 #[derive(Debug, FromRow, sqlx::Type, Serialize)]
 pub struct UserInfo {
-    user_id: i64,
-    handle: String,
-    displayname: String,
+    pub user_id: i64,
+    pub handle: String,
+    pub displayname: String,
 }
+
+/// Used for actix web enpoint parameter for only
+/// retrieving the user_id of the person sending
+/// the request, is way faster than selecting `User`,
+/// and more appropriate when you only want to 
+/// prevent non authenticated people from calling
+/// an endpoint
+pub struct UserIdReq(pub i64);
 
 impl User {
     /// Try to create a user. Will fail if:
@@ -78,12 +89,13 @@ impl User {
             // after inserting
             id,
             joined: chrono::DateTime::from_timestamp_nanos(0),
+            followers: 0,
 
             handle,
             displayname,
             email,
             hash,
-            salt
+            salt,
         })
     }
 
@@ -129,7 +141,7 @@ impl User {
     /// ?: forcing passwords / getting email addresses
     pub async fn login(pool: &PgPool, email: &String, password: &String) -> Result<String, Error> {
         log("login", "Logging in");
-        
+
         let invalid_pass_or_email = Error::new("Invalid email or password");
         let user = match sqlx::query_as!(Self,
             "SELECT * FROM users WHERE users.email = $1", email
@@ -153,6 +165,81 @@ impl User {
         }else {
             Err(invalid_pass_or_email)
         }        
+    }
+
+    /// Set following user to true or not
+    pub async fn set_following(
+        pool: &PgPool, follower_id: i64, followee_id: i64,
+        wants_follow: bool
+    ) -> Result<(), Error> {
+        let is_following = sqlx::query!(r"
+            SELECT * FROM follows WHERE
+            follows.follower_id = $1 AND
+            follows.followee_id = $2",
+            follower_id, followee_id
+        )
+            .fetch_optional(pool)
+            .await
+            .map_err(Error::new)?
+            .is_some();
+
+        // If we should increment the following count or decrease it
+        let increment: bool;
+
+        // If we want to like but we've already done it or opposite
+        // (only for making code clear it's not neccesary)
+        if wants_follow && is_following || !wants_follow && !is_following {
+            return Ok(());
+        }else if wants_follow && !is_following {
+            sqlx::query!(r#"
+                INSERT INTO follows
+                (follower_id, followee_id) VALUES ($1, $2)"#,
+                follower_id, followee_id
+            )
+                .execute(pool)
+                .await
+                .map_err(Error::new)?;
+
+            increment = true;
+        }else if !wants_follow && is_following {
+            sqlx::query!(r#"
+                DELETE FROM follows
+                    WHERE follows.follower_id = $1
+                    AND follows.followee_id = $2"#,
+                follower_id, followee_id
+            )
+                .execute(pool)
+                .await
+                .map_err(Error::new)?;
+
+            increment = false;
+        }else {
+            unreachable!()
+        }
+
+        sqlx::query(&format!(r#"
+            UPDATE users
+                SET followers = followers {}
+                WHERE users.id = {}"#,
+            if increment { "+ 1" } else { "- 1" },
+            followee_id
+        ))
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(Error::new)
+    }
+
+    /// Get profile image and return default profile image
+    /// if not found
+    pub fn profile_image(req: HttpRequest, user_id: i64) -> impl Responder {
+        const DEFAULT_USER: &[u8] = include_bytes!("../../assets/images/default-user.jpg");
+        match NamedFile::open(String::from("/assets/images/") + &user_id.to_string()) {
+            Ok(e) => e.respond_to(&req),
+            Err(_) => HttpResponse::Ok()
+                .content_type(ContentType::jpeg())
+                .body(DEFAULT_USER)
+        }
     }
 
     /// Check if JWT is valid and return user if found via appdata postgres pool
@@ -305,5 +392,26 @@ impl FromRequest for User {
             
             Err(Error::new_with_code("Unauthorized", StatusCode::UNAUTHORIZED))
         })
+    }
+}
+
+impl FromRequest for UserIdReq {
+    type Error = Error;
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &actix_web::HttpRequest, payload: &mut actix_web::dev::Payload) -> Self::Future {
+        let auth_header = req.headers().get("Authorization").cloned();
+        if let Some(header_value) = auth_header {
+            if let Ok(header_str) = header_value.to_str() {
+                if let Some(token) = header_str.strip_prefix("Bearer ") {
+                    return match UserClaims::is_valid(&token) {
+                        Ok(e) => ready(Ok(Self(e.claims.id))),
+                        Err(e) => ready(Err(e))
+                    }
+                }
+            }
+        }
+        
+        ready(Err(Error::new_with_code("Unauthorized", StatusCode::UNAUTHORIZED)))
     }
 }
