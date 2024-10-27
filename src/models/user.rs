@@ -9,6 +9,7 @@ use sha2::{Sha256, Digest};
 use sqlx::{prelude::FromRow, types::chrono::{self, NaiveDateTime}, PgPool};
 use unicode_segmentation::UnicodeSegmentation;
 use crate::{error::Error, middleware::auth::UserClaims, utils::logger::log, AppData};
+use super::pfp::ProfileImageHandler;
 
 /* Constants */
 const EMAIL_REGEX: &'static str = r#"^[\w\.-]+@[\w\.-]+\.\w+$"#;
@@ -97,6 +98,15 @@ impl User {
             hash,
             salt,
         })
+    }
+
+    /// To non-sensitive data
+    pub fn to_non_sensitive(self) -> UserInfo {
+        UserInfo {
+            user_id: self.id,
+            handle: self.handle,
+            displayname: self.displayname
+        }
     }
 
     /// Retrieve user from db via id
@@ -228,18 +238,6 @@ impl User {
         .await
         .map(|_| ())
         .map_err(Error::new)
-    }
-
-    /// Get profile image and return default profile image
-    /// if not found
-    pub fn profile_image(req: HttpRequest, user_id: i64) -> impl Responder {
-        const DEFAULT_USER: &[u8] = include_bytes!("../../assets/images/default-user.jpg");
-        match NamedFile::open(String::from("/assets/images/") + &user_id.to_string()) {
-            Ok(e) => e.respond_to(&req),
-            Err(_) => HttpResponse::Ok()
-                .content_type(ContentType::jpeg())
-                .body(DEFAULT_USER)
-        }
     }
 
     /// Check if JWT is valid and return user if found via appdata postgres pool
