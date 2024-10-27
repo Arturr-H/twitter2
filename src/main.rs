@@ -9,15 +9,16 @@ mod error;
 
 /* Imports */
 use actix_cors::Cors;
-use actix_web::{get, http::header, web::{self, Data}, App, HttpServer, Responder};
+use actix_web::{dev::Service, get, http::{header, KeepAlive}, middleware::Logger, web::{self, Data, PayloadConfig}, App, HttpServer, Responder};
 use std::error::Error;
 use models::{post::Post, user::User};
 use sqlx::PgPool;
 use utils::logger::log;
-use handlers::{auth, bookmarks, feed, post, hashtag, user};
+use handlers::{auth, bookmarks, feed, post, hashtag, user, opinion};
 
 /* Constants */
 const DATABASE_URL: &'static str = env!("DATABASE_URL");
+const MAX_REQUEST_SIZE: usize = 1_048_576 * 3; // 3MB
 
 pub struct AppData {
     db: PgPool
@@ -27,6 +28,10 @@ pub struct AppData {
 async fn main() -> () {
     log("PgPool", "Initializing");
     let pool = PgPool::connect(&DATABASE_URL).await.unwrap();
+    env_logger::init_from_env(
+        env_logger::Env::default()
+            .default_filter_or("info")
+    );
 
     log("HttpServer", "Initializing");
     HttpServer::new(move || {
@@ -34,9 +39,12 @@ async fn main() -> () {
         let cors = Cors::permissive();
 
         App::new()
-            .wrap(cors)
+            .wrap(Cors::permissive()
+                .allowed_origin("http://localhost:5173")
+            )
+            .wrap(Logger::default())
             .app_data(Data::new(AppData { db: pool.clone() }))
-
+            .app_data(PayloadConfig::new(MAX_REQUEST_SIZE))
             .service(ping)
             .service(web::scope("/auth")
                 .service(auth::login)
@@ -44,8 +52,13 @@ async fn main() -> () {
             )
             .service(web::scope("/user")
                 .service(user::get_by_id)
-                .service(user::profile_image_self)
+                .service(user::get_by_handle)
+                .service(user::get_profile_image)
+                .service(user::set_profile_image)
+                .service(user::delete_profile_image)
                 .service(user::set_following)
+                .service(user::posts)
+                .service(user::profile)
             )
             .service(web::scope("/post")
                 .service(post::publish)
@@ -53,15 +66,24 @@ async fn main() -> () {
                 .service(post::set_bookmark)
                 .service(post::post_by_id)
                 .service(bookmarks::bookmarks)
+
+                .service(web::scope("/opinion")
+                    .service(opinion::create)
+                    .service(opinion::set_vote)
+                    .service(opinion::get_opinions)
+                )
             )
             .service(web::scope("/feed")
                 .service(feed::newest)
+                .service(feed::replies)
+                .service(feed::search)
                 .service(web::scope("/hashtag")
                     .service(hashtag::posts_by_hashtag)
                     .service(hashtag::trending_hashtags)
                 )
             )
     })
+    .keep_alive(KeepAlive::Disabled)
     .bind(("127.0.0.1", 8080))
     .unwrap().run().await.unwrap();
 }
