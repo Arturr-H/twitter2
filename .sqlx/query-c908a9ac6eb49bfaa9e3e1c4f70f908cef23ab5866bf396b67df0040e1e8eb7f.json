@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO users\n            (handle, displayname, email, hash, salt)\n            VALUES ($1, $2, $3, $4, $5) RETURNING users.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Varchar",
+        "Text",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c908a9ac6eb49bfaa9e3e1c4f70f908cef23ab5866bf396b67df0040e1e8eb7f"
+}

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO hashtags (tag)\n                VALUES ($1)\n                ON CONFLICT (tag) DO UPDATE SET tag = excluded.tag\n                RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5e7f78b149dc36e43be13b31bff7d8d3e9825e6d9f0c969071f171deacb80820"
+}

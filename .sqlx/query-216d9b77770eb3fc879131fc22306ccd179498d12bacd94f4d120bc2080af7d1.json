@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT * FROM follows WHERE\n            follows.follower_id = $1 AND\n            follows.followee_id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "follower_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "followee_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "follow_date",
+        "type_info": "Timestamp"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "216d9b77770eb3fc879131fc22306ccd179498d12bacd94f4d120bc2080af7d1"
+}

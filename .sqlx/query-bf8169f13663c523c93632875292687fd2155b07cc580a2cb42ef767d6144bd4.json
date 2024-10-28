@@ -1,0 +1,94 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT * FROM get_posts_default($1)\n            WHERE replies_to IS NULL\n                OR citation IS NOT NULL\n            ORDER BY created_at DESC;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_likes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_replies",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "poster_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "replies_to",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "citation",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "displayname",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "handle",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "liked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "bookmarked",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "bf8169f13663c523c93632875292687fd2155b07cc580a2cb42ef767d6144bd4"
+}

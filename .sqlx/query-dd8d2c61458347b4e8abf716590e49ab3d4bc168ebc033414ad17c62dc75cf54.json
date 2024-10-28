@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO post_hashtags (post_id, hashtag_id)\n                VALUES ($1, $2)\n                ON CONFLICT (post_id, hashtag_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dd8d2c61458347b4e8abf716590e49ab3d4bc168ebc033414ad17c62dc75cf54"
+}

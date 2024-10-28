@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE posts\n                SET total_replies = total_replies + 1\n                WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6386aed4e9b63ca3e299571284dfa056e0181b7a131f518acb0249b31e3cdf2d"
+}

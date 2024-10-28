@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                DELETE FROM post_opinion_votes\n                    WHERE post_opinion_votes.user_id = $1\n                    AND post_opinion_votes.opinion_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4bdc1f88caaa5f579f24654f102cb91b7d4cea3dfcd2957c480c364eb0351692"
+}

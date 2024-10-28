@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT posts.* FROM get_posts_default($1) posts\n            WHERE posts.content ILIKE ALL($2)\n            ORDER BY total_likes DESC;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "total_likes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_replies",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "poster_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "replies_to",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "citation",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 8,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "displayname",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "handle",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 11,
+        "name": "liked",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 12,
+        "name": "bookmarked",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "878ac5192f6e201a0c2e8b17487310cf21b0f382f522d6b76f4a0086051f9d3c"
+}
