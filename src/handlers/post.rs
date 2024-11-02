@@ -12,6 +12,10 @@ struct PublishRequest {
     citation: Option<PostCitation>
 }
 #[derive(Deserialize)]
+struct DeleteRequest {
+    post_id: i64
+}
+#[derive(Deserialize)]
 struct SetBooleanRequest {
     to: bool,
     post_id: i32
@@ -26,6 +30,21 @@ pub async fn publish(
     let body = body.into_inner();
     Post::new(user.id(), body.content, body.replies_to, body.citation)
         .insert_into(&data.db)
+        .await
+        .map_err(Error::new)
+        .map(|_| HttpResponse::Ok())
+}
+
+/// Delete a post
+#[post("/delete")]
+pub async fn delete(
+    req: HttpRequest, data: web::Data<AppData>,
+    body: web::Json<DeleteRequest>, user: User
+) -> impl Responder {
+    sqlx::query!(r#"
+        DELETE FROM posts WHERE id = $1 AND poster_id = $2;
+    "#, body.post_id, user.id())
+        .execute(&data.db)
         .await
         .map_err(Error::new)
         .map(|_| HttpResponse::Ok())
