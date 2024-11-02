@@ -108,6 +108,19 @@ impl Post {
             .map_err(Error::new)?;
         }
 
+        // Increase the total_replies of the post we replied to
+        if let Some(replies_to) = self.replies_to {
+            sqlx::query!(r#"
+                UPDATE posts
+                SET total_replies = total_replies + 1
+                WHERE id = $1"#,
+                replies_to
+            )
+            .execute(pool)
+            .await
+            .map_err(Error::new)?;
+        }
+
         Ok(())
     }
 
