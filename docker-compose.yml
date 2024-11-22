@@ -1,5 +1,5 @@
 services:
-  db:
+  dockerpsqldb:
     container_name: postgres_db
     image: postgres
     restart: always
