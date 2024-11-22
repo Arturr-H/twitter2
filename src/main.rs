@@ -27,7 +27,7 @@ pub struct AppData {
 
 #[tokio::main]
 async fn main() -> () {
-    log("PgPool", "Initializing");
+    log::yellow("PgPool", "Initializing");
     let pool = PgPool::connect(&DATABASE_URL).await.unwrap();
 
     // TODO THIS MIGHT BE GOOD TO DO
@@ -40,7 +40,7 @@ async fn main() -> () {
             .default_filter_or("info")
     );
 
-    log("HttpServer", "Initializing");
+    log::blue("HttpServer", "Initializing");
     HttpServer::new(move || {
         // TODO: Better CORS implemntation than this...
         let cors = Cors::permissive();

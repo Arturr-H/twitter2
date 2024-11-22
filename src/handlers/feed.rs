@@ -1,6 +1,6 @@
 /* Imports */
 use actix_web::{get, web, HttpRequest, Responder};
-use crate::{error::Error, models::{post::PostWithUser, user::{User, UserIdReq}}, utils::logger::log, AppData};
+use crate::{error::Error, models::{post::PostWithUser, user::{User, UserIdReq}}, AppData};
 
 /// Get the most recent posts
 #[get("/newest")]
@@ -8,7 +8,6 @@ pub async fn newest(
     req: HttpRequest, data: web::Data<AppData>,
     user_id: UserIdReq
 ) -> impl Responder {
-    log("newest", format!("{:?}", user_id.0));
     sqlx::query_as!(PostWithUser, r#"
         SELECT * FROM get_posts_default($1)
             WHERE (replies_to IS NULL
@@ -26,7 +25,6 @@ pub async fn popular(
     req: HttpRequest, data: web::Data<AppData>,
     user_id: UserIdReq
 ) -> impl Responder {
-    log("popular", format!("{:?}", user_id.0));
     sqlx::query_as!(PostWithUser, r#"
         SELECT * FROM get_posts_default($1)
             WHERE (replies_to IS NULL

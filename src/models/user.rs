@@ -79,13 +79,13 @@ impl User {
         email: String, password: String, pepper: &str
     ) -> Result<Self, Error> {
         Self::handle_valid(pool, &handle).await?;
-        log("try_create", "Handle       valid");
+        log::bright_green("try_create", "Handle       valid");
         Self::displayname_valid(&displayname)?;
-        log("try_create", "Displayname  valid");
+        log::bright_green("try_create", "Displayname  valid");
         Self::email_valid(pool, &email).await?;
-        log("try_create", "Email        valid");
+        log::bright_green("try_create", "Email        valid");
         Self::password_valid(&password)?;
-        log("try_create", "Password     valid");
+        log::bright_green("try_create", "Password     valid");
 
         let id = 0;
         let salt = Self::generate_salt();
@@ -137,10 +137,10 @@ impl User {
         pool: &PgPool, handle: String, displayname: String,
         email: String, password: String, 
     ) -> Result<String, Error> {
-        log("create_account", "Trying to create");
+        log::bright_green("create_account", "Trying to create");
         dbg!(&displayname, &email, &password);
         let user = Self::try_create(pool, handle.clone(), displayname, email, password, PEPPER).await?;
-        log("create_account", "Inserting");
+        log::bright_green("create_account", "Inserting");
 
         sqlx::query_scalar!(r#"
             INSERT INTO users
@@ -165,7 +165,7 @@ impl User {
     /// ?: email - because that can help attackers brute
     /// ?: forcing passwords / getting email addresses
     pub async fn login(pool: &PgPool, email: &String, password: &String) -> Result<String, Error> {
-        log("login", "Logging in");
+        log::bright_green("login", "Logging in");
 
         let invalid_pass_or_email = Error::new("Invalid email or password");
         let user = match sqlx::query_as!(Self,
@@ -178,10 +178,10 @@ impl User {
             Err(e) => return Err(Error::new(e))
         };
 
-        log("login", "Checking hash");
+        log::bright_green("login", "Checking hash");
         let hash = Self::hash_password(password, &user.salt);
         if user.hash == hash {
-            log("login", "Hash matched - trying to return JWT");
+            log::bright_green("login", "Hash matched - trying to return JWT");
             let claims = UserClaims::new(user.handle, user.id);
             match claims.to_string() {
                 Some(e) => Ok(e),
@@ -269,11 +269,11 @@ impl User {
 
     /// Check if JWT is valid and return user if found via appdata postgres pool
     async fn from_appdata(pool: &AppData, jwt: String) -> Result<Self, Error> {
-        log("from_jwt", "Checking JWT validation");
+        log::bright_green("from_jwt", "Checking JWT validation");
         let user_claims = UserClaims::is_valid(&jwt)?;
         let id = user_claims.claims.id;
 
-        log("from_jwt", "Retrieving user from db");
+        log::bright_green("from_jwt", "Retrieving user from db");
         sqlx::query_as!(Self,
             "SELECT * FROM users WHERE users.id = $1", id
         )
