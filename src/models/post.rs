@@ -46,10 +46,11 @@ pub struct PostWithUser {
     pub user_id: Option<i64>,
     pub displayname: Option<String>,
     pub handle: Option<String>,
-
+    
     /* Post metadata related to user */
     pub liked: Option<bool>,
     pub bookmarked: Option<bool>,
+    pub is_followed: Option<bool>,
 }
 
 impl Post {
@@ -88,7 +89,7 @@ impl Post {
                 VALUES ($1)
                 ON CONFLICT (tag) DO UPDATE SET tag = excluded.tag
                 RETURNING id"#,
-                tag
+                tag.to_lowercase()
             )
             .fetch_one(pool)
             .await
@@ -194,7 +195,7 @@ impl Post {
 
     /// Looks through a string and returns (hashtags, mentions)
     pub fn hashtags_and_mentions(&self) -> (Vec<String>, Vec<String>) {
-        const HASHTAG_REGEX: &'static str = "^[a-z0-9]+$";
+        const HASHTAG_REGEX: &'static str = "^[a-zA-Z0-9]+$";
         let mut hashtags = Vec::new();
         let mut mentions = Vec::new();
         let rgx = Regex::new(HASHTAG_REGEX).unwrap();
@@ -206,8 +207,8 @@ impl Post {
 
         let set_seeking = &mut |cbuf: &mut String, ish: &mut bool, ism: &mut bool| {
             if !cbuf.is_empty() {
-                if *ish { hashtags.push(cbuf.clone()) }
-                else if *ism { mentions.push(cbuf.clone()) };
+                if *ish { hashtags.push(cbuf.to_lowercase()) }
+                else if *ism { mentions.push(cbuf.to_lowercase()) };
             }
 
             *ish = false;
