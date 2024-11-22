@@ -41,7 +41,8 @@ pub struct User {
     hash: Vec<u8>,
     salt: String,
 
-    followers: i32
+    followers: i32,
+    following: i32,
 }
 
 /// The version of the user struct that does not 
@@ -51,6 +52,11 @@ pub struct UserInfo {
     pub user_id: i64,
     pub handle: String,
     pub displayname: String,
+    pub followers: i32,
+    pub following: i32,
+
+    /// If the user requesting is is following the person
+    pub is_followed: bool,
 }
 
 /// Used for actix web enpoint parameter for only
@@ -91,6 +97,7 @@ impl User {
             id,
             joined: chrono::DateTime::from_timestamp_nanos(0),
             followers: 0,
+            following: 0,
 
             handle,
             displayname,
@@ -105,7 +112,15 @@ impl User {
         UserInfo {
             user_id: self.id,
             handle: self.handle,
-            displayname: self.displayname
+            displayname: self.displayname,
+            followers: self.followers,
+            following: self.following,
+
+            // This method is only called when the user
+            // is the one sending the request, so we can
+            // assume that the user is not following
+            // themselves
+            is_followed: false
         }
     }
 
@@ -227,6 +242,9 @@ impl User {
             unreachable!()
         }
 
+        let op_str = if increment { "+ 1" } else { "- 1" };
+
+        /* Followers count */
         sqlx::query(&format!(r#"
             UPDATE users
                 SET followers = followers {}
@@ -234,10 +252,19 @@ impl User {
             if increment { "+ 1" } else { "- 1" },
             followee_id
         ))
-        .execute(pool)
-        .await
-        .map(|_| ())
-        .map_err(Error::new)
+        .execute(pool).await
+        .map(|_| ()).map_err(Error::new)?;
+
+        /* Following count */
+        sqlx::query(&format!(r#"
+            UPDATE users
+                SET following = following {}
+                WHERE users.id = {}"#,
+            if increment { "+ 1" } else { "- 1" },
+            follower_id
+        ))
+        .execute(pool).await
+        .map(|_| ()).map_err(Error::new)
     }
 
     /// Check if JWT is valid and return user if found via appdata postgres pool
