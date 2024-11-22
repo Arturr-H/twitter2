@@ -11,14 +11,15 @@ mod error;
 use actix_cors::Cors;
 use actix_web::{dev::Service, get, http::{header, KeepAlive}, middleware::Logger, web::{self, Data, PayloadConfig}, App, HttpServer, Responder};
 use std::error::Error;
-use models::{post::Post, user::User};
 use sqlx::PgPool;
+use models::{post::Post, user::User};
 use utils::logger::log;
 use handlers::{auth, bookmarks, feed, post, hashtag, user, opinion};
 
 /* Constants */
 const DATABASE_URL: &'static str = env!("DATABASE_URL");
 const MAX_REQUEST_SIZE: usize = 1_048_576 * 3; // 3MB
+const FRONTEND_URL: &'static str = env!("FRONTEND_URL");
 
 pub struct AppData {
     db: PgPool
@@ -28,6 +29,12 @@ pub struct AppData {
 async fn main() -> () {
     log("PgPool", "Initializing");
     let pool = PgPool::connect(&DATABASE_URL).await.unwrap();
+
+    // TODO THIS MIGHT BE GOOD TO DO
+    // sqlx::migrate!("./migrations")
+    //     .run(&pool)
+    //     .await.unwrap();
+
     env_logger::init_from_env(
         env_logger::Env::default()
             .default_filter_or("info")
@@ -40,7 +47,7 @@ async fn main() -> () {
 
         App::new()
             .wrap(Cors::permissive()
-                .allowed_origin("http://localhost:5173")
+                .allow_any_origin()
             )
             .wrap(Logger::default())
             .app_data(Data::new(AppData { db: pool.clone() }))
@@ -59,9 +66,11 @@ async fn main() -> () {
                 .service(user::set_following)
                 .service(user::posts)
                 .service(user::profile)
+                .service(user::all_handles)
             )
             .service(web::scope("/post")
                 .service(post::publish)
+                .service(post::delete)
                 .service(post::set_like)
                 .service(post::set_bookmark)
                 .service(post::post_by_id)
@@ -75,6 +84,8 @@ async fn main() -> () {
             )
             .service(web::scope("/feed")
                 .service(feed::newest)
+                .service(feed::for_you)
+                .service(feed::popular)
                 .service(feed::replies)
                 .service(feed::search)
                 .service(web::scope("/hashtag")
@@ -84,7 +95,7 @@ async fn main() -> () {
             )
     })
     .keep_alive(KeepAlive::Disabled)
-    .bind(("127.0.0.1", 8080))
+    .bind(("0.0.0.0", 8081))
     .unwrap().run().await.unwrap();
 }
 
