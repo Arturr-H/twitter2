@@ -14,7 +14,7 @@ impl ProfileImageHandler {
     /// the found pfp or the default-user.jpg file.
     pub async fn get_image(req: HttpRequest, user_id: i64) -> HttpResponse {
         const DEFAULT_USER: &[u8] = include_bytes!("../../assets/images/default-user.jpg");
-        let path = String::from("./assets/images/profile/") + &user_id.to_string() + ".jpg";
+        let path = String::from("/usr/src/app/assets/images/profile/") + &user_id.to_string() + ".jpg";
         match tokio::fs::read(&path).await {
             Ok(e) => HttpResponse::Ok()
                 .content_type(ContentType::jpeg())
@@ -37,7 +37,7 @@ impl ProfileImageHandler {
         dbg!("Setting image");
 
         let image = resize(&img, 200, 200, image::imageops::FilterType::Nearest);
-        let path = format!("./assets/images/profile/{}.jpg", user_id);
+        let path = format!("/usr/src/app/assets/images/profile/{}.jpg", user_id);
         dbg!("Setting image");
         
         image.save_with_format(path, ImageFormat::Jpeg)
@@ -47,7 +47,7 @@ impl ProfileImageHandler {
 
     /// Remove profile image of user requesting
     pub async fn remove_image(user_id: i64) -> Result<HttpResponse, Error> {
-        let path = format!("./assets/images/profile/{}.jpg", user_id);
+        let path = format!("/usr/src/app/assets/images/profile/{}.jpg", user_id);
         tokio::fs::remove_file(path)
             .await
             .map_err(Error::new)
