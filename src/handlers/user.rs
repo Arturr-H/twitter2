@@ -17,18 +17,28 @@ struct SetFollowingRequest {
 /// Get user by their id
 #[get("/id/{id}")]
 pub async fn get_by_id(
-    data: web::Data<AppData>, _user_id: UserIdReq,
+    data: web::Data<AppData>, user_id: UserIdReq,
     id: web::Path<i64>
 ) -> impl Responder {
     let id = id.into_inner();
+    let user_id = user_id.0;
 
     sqlx::query_as!(UserInfo, r#"
         SELECT 
             users.id as user_id,
             users.displayname,
-            users.handle
+            users.handle,
+            users.following,
+            users.followers,
+
+            -- If is followed by user
+            EXISTS(
+                SELECT 1 FROM follows
+                WHERE follows.follower_id = $2
+                AND follows.followee_id = users.id
+            ) as "is_followed!: bool"
         FROM users WHERE users.id = $1;
-    "#, id)
+    "#, id, user_id)
     .fetch_optional(&data.db).await
     .map_err(Error::new)
     .and_then(|e| 
@@ -40,18 +50,28 @@ pub async fn get_by_id(
 /// Get user by their handle
 #[get("/handle/{handle}")]
 pub async fn get_by_handle(
-    data: web::Data<AppData>, _user_id: UserIdReq,
+    data: web::Data<AppData>, user_id: UserIdReq,
     handle: web::Path<String>
 ) -> impl Responder {
     let handle = handle.into_inner();
+    let user_id = user_id.0;
 
     sqlx::query_as!(UserInfo, r#"
         SELECT 
             users.id as user_id,
             users.displayname,
-            users.handle
+            users.handle,
+            users.following,
+            users.followers,
+
+            -- If is followed by user
+            EXISTS(
+                SELECT 1 FROM follows
+                WHERE follows.follower_id = $2
+                AND follows.followee_id = users.id
+            ) as "is_followed!: bool"
         FROM users WHERE users.handle = $1;
-    "#, handle)
+    "#, handle, user_id)
     .fetch_optional(&data.db).await
     .map_err(Error::new)
     .and_then(|e| 
@@ -82,6 +102,17 @@ pub async fn set_following(
 pub async fn profile(req: HttpRequest, user: User) -> impl Responder {
     serde_json::to_string(&user.to_non_sensitive())
         .map_err(Error::new)
+}
+
+#[get("/debug-get-all-handles")]
+pub async fn all_handles(req: HttpRequest, data: web::Data<AppData>) -> impl Responder {
+    sqlx::query_scalar!(r#"
+        SELECT handle FROM users
+    "#)
+    .fetch_all(&data.db)
+    .await
+    .map_err(Error::new)
+    .map(|e: Vec<String>| serde_json::to_string(&e).unwrap())
 }
 
 /// Get all posts that a user has posted
