@@ -8,13 +8,65 @@ pub async fn newest(
     req: HttpRequest, data: web::Data<AppData>,
     user_id: UserIdReq
 ) -> impl Responder {
-    log("feed", format!("Retrieving feed for user(id = {})", user_id.0));
-
+    log("newest", format!("{:?}", user_id.0));
     sqlx::query_as!(PostWithUser, r#"
         SELECT * FROM get_posts_default($1)
-            WHERE replies_to IS NULL
-                OR citation IS NOT NULL
+            WHERE (replies_to IS NULL
+                OR citation IS NOT NULL)
             ORDER BY created_at DESC;
+    "#, user_id.0)
+        .fetch_all(&data.db).await
+        .map_err(Error::new)
+        .map(|e| serde_json::to_string(&e).unwrap())
+}
+
+/// Get the most popular posts this week
+#[get("/popular")]
+pub async fn popular(
+    req: HttpRequest, data: web::Data<AppData>,
+    user_id: UserIdReq
+) -> impl Responder {
+    log("popular", format!("{:?}", user_id.0));
+    sqlx::query_as!(PostWithUser, r#"
+        SELECT * FROM get_posts_default($1)
+            WHERE (replies_to IS NULL
+                OR citation IS NOT NULL)
+                AND created_at > now() - interval '7 days'
+            ORDER BY total_likes DESC;
+    "#, user_id.0)
+        .fetch_all(&data.db).await
+        .map_err(Error::new)
+        .map(|e| serde_json::to_string(&e).unwrap())
+}
+
+/// I might change this in the future but currently
+/// this will return some post from users that the 
+/// requesting user is following and some posts that
+/// these people have liked.
+#[get("/for-you")]
+pub async fn for_you(
+    req: HttpRequest, data: web::Data<AppData>,
+    user_id: UserIdReq
+) -> impl Responder {
+    dbg!(user_id.0);
+    
+    sqlx::query_as!(PostWithUser, r#"
+        SELECT * FROM get_posts_default($1) posts
+            WHERE posts.poster_id IN (
+                SELECT follows.followee_id FROM follows
+                    WHERE follows.follower_id = $1
+            )
+            OR posts.id IN (
+                SELECT post_id FROM post_likes
+                    WHERE user_id IN (
+                        SELECT follows.followee_id FROM follows
+                            WHERE follows.follower_id = $1
+                    )
+            )
+            
+            AND (posts.replies_to IS NULL
+                OR posts.citation IS NOT NULL)
+            ORDER BY posts.created_at DESC;
     "#, user_id.0)
         .fetch_all(&data.db).await
         .map_err(Error::new)
