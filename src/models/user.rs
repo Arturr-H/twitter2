@@ -79,13 +79,9 @@ impl User {
         email: String, password: String, pepper: &str
     ) -> Result<Self, Error> {
         Self::handle_valid(pool, &handle).await?;
-        log::bright_green("try_create", "Handle       valid");
         Self::displayname_valid(&displayname)?;
-        log::bright_green("try_create", "Displayname  valid");
         Self::email_valid(pool, &email).await?;
-        log::bright_green("try_create", "Email        valid");
         Self::password_valid(&password)?;
-        log::bright_green("try_create", "Password     valid");
 
         let id = 0;
         let salt = Self::generate_salt();
@@ -137,8 +133,7 @@ impl User {
         pool: &PgPool, handle: String, displayname: String,
         email: String, password: String, 
     ) -> Result<String, Error> {
-        log::bright_green("create_account", "Trying to create");
-        dbg!(&displayname, &email, &password);
+        log::bright_green("create_account", format!("Creating account for @{}", &handle));
         let user = Self::try_create(pool, handle.clone(), displayname, email, password, PEPPER).await?;
         log::bright_green("create_account", "Inserting");
 
@@ -269,11 +264,9 @@ impl User {
 
     /// Check if JWT is valid and return user if found via appdata postgres pool
     async fn from_appdata(pool: &AppData, jwt: String) -> Result<Self, Error> {
-        log::bright_green("from_jwt", "Checking JWT validation");
         let user_claims = UserClaims::is_valid(&jwt)?;
         let id = user_claims.claims.id;
 
-        log::bright_green("from_jwt", "Retrieving user from db");
         sqlx::query_as!(Self,
             "SELECT * FROM users WHERE users.id = $1", id
         )

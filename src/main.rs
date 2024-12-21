@@ -35,10 +35,12 @@ async fn main() -> () {
     //     .run(&pool)
     //     .await.unwrap();
 
-    env_logger::init_from_env(
-        env_logger::Env::default()
-            .default_filter_or("info")
-    );
+    if env!("DEBUG_LOG_ACTIX").parse::<bool>().unwrap() {
+        env_logger::init_from_env(
+            env_logger::Env::default()
+                .default_filter_or("info")
+        );
+    }
 
     log::blue("HttpServer", "Initializing");
     HttpServer::new(move || {
