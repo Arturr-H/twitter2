@@ -69,6 +69,7 @@ async fn main() -> () {
                 .service(user::posts)
                 .service(user::profile)
                 .service(user::all_handles)
+                .service(user::popular)
             )
             .service(web::scope("/post")
                 .service(post::publish)

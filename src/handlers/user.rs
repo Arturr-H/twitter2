@@ -140,6 +140,35 @@ pub async fn get_profile_image(
         .await
 }
 
+/// Get most popular users
+#[get("/popular")]
+pub async fn popular(
+    data: web::Data<AppData>, user_id: UserIdReq
+) -> impl Responder {
+    sqlx::query_as!(UserInfo, r#"
+        SELECT 
+            users.id as user_id,
+            users.displayname,
+            users.handle,
+            users.following,
+            users.followers,
+
+            -- If is followed by user
+            EXISTS(
+                SELECT 1 FROM follows
+                WHERE follows.follower_id = $1
+                AND follows.followee_id = users.id
+            ) as "is_followed!: bool"
+        FROM users
+        ORDER BY users.followers DESC
+        LIMIT 5;
+    "#, user_id.0)
+    .fetch_all(&data.db).await
+    .map_err(Error::new)
+    .and_then(|e| serde_json::to_string(&e)
+        .map_err(Error::new))
+}
+
 #[derive(MultipartForm)]
 pub struct ProfileImageUpload {
     #[multipart(limit = "3MB")]
