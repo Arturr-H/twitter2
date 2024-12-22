@@ -32,7 +32,8 @@ RETURNS TABLE (
             jsonb_agg(jsonb_build_object(
                 'opinion', opinion,
                 'votes', votes,
-                'voted', voted
+                'voted', voted,
+                'opinion_id', opinion_id
             )) AS opinions
         FROM ranked_opinions
         WHERE rank <= 5
