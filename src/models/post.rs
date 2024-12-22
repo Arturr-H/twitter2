@@ -51,6 +51,8 @@ pub struct PostWithUser {
     pub liked: Option<bool>,
     pub bookmarked: Option<bool>,
     pub is_followed: Option<bool>,
+
+    pub top_opinions: Option<serde_json::Value>,
 }
 
 impl Post {
