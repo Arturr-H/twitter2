@@ -16,8 +16,9 @@ const OPINION_MAX_LEN: usize = 12;
 #[derive(Serialize)]
 pub struct Opinion {
     opinion: String,
-    id: i64,
-    voted: bool
+    opinion_id: i64,
+    voted: bool,
+    votes: i64
 }
 
 impl Opinion {
@@ -97,17 +98,19 @@ impl Opinion {
     pub async fn get_post_opinions(pool: &PgPool, post_id: i64) -> Result<Vec<Self>, Error> {
         sqlx::query_as!(Opinion, r#"
             SELECT
-                post_opinions.id, post_opinions.opinion,
-                is_not_null(post_opinion_votes.user_id) AS "voted!: bool"
+                post_opinions.id as opinion_id, post_opinions.opinion,
+                is_not_null(post_opinion_votes.user_id) AS "voted!: bool",
+                post_opinions.votes
             FROM
                 post_opinions
-            LEFT JOIN post_opinion_votes
-                ON post_opinion_votes.post_id = post_opinions.post_id
-                AND post_opinion_votes.user_id = post_opinions.user_id
+            LEFT JOIN
+                post_opinion_votes
+            ON
+                post_opinions.id = post_opinion_votes.opinion_id
             WHERE
                 post_opinions.post_id = $1
-            ORDER BY post_opinions.votes DESC
-                LIMIT 5;
+            ORDER BY
+                post_opinions.votes DESC;
         "#, post_id)
         .fetch_all(pool).await
         .map_err(Error::new)

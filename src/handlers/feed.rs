@@ -46,8 +46,6 @@ pub async fn for_you(
     req: HttpRequest, data: web::Data<AppData>,
     user_id: UserIdReq
 ) -> impl Responder {
-    dbg!(user_id.0);
-    
     sqlx::query_as!(PostWithUser, r#"
         SELECT * FROM get_posts_default($1) posts
             WHERE posts.poster_id IN (
