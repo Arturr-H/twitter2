@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET tomatoes = tomatoes - 1 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "58a1e4790f1ac308bddffc2f7f962054bb8c72b5c916b592dc3f13aaae71cf5c"
+}

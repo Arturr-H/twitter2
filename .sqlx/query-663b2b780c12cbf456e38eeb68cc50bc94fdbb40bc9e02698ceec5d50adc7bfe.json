@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET tomatoes = 5, last_tomato_reset = $1 WHERE id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "663b2b780c12cbf456e38eeb68cc50bc94fdbb40bc9e02698ceec5d50adc7bfe"
+}

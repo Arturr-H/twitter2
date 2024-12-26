@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT tomatoes, last_tomato_reset FROM users WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tomatoes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "last_tomato_reset",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "78275072083a6a53681c4d80b036befb55f9a42682c0d2d3011990a2503f12c1"
+}

@@ -45,28 +45,48 @@
       },
       {
         "ordinal": 8,
-        "name": "user_id",
+        "name": "total_tomatoes",
         "type_info": "Int8"
       },
       {
         "ordinal": 9,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
         "name": "displayname",
         "type_info": "Text"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "handle",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "liked",
         "type_info": "Bool"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "bookmarked",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "has_thrown_tomato",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "is_followed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "top_opinions",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -76,6 +96,10 @@
       ]
     },
     "nullable": [
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,

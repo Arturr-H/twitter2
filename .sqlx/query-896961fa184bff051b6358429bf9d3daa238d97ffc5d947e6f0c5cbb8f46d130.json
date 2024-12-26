@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT * FROM get_posts_default($1)\n            WHERE replies_to IS NULL\n                OR citation IS NOT NULL\n            ORDER BY created_at DESC;\n    ",
+  "query": "\n        SELECT * FROM get_posts_default($1)\n            WHERE (replies_to IS NULL\n                OR citation IS NOT NULL)\n                AND created_at > now() - interval '7 days'\n            ORDER BY total_likes DESC;\n    ",
   "describe": {
     "columns": [
       {
@@ -45,28 +45,48 @@
       },
       {
         "ordinal": 8,
-        "name": "user_id",
+        "name": "total_tomatoes",
         "type_info": "Int8"
       },
       {
         "ordinal": 9,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
         "name": "displayname",
         "type_info": "Text"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "handle",
         "type_info": "Text"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "liked",
         "type_info": "Bool"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "bookmarked",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "has_thrown_tomato",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 15,
+        "name": "is_followed",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 16,
+        "name": "top_opinions",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -87,8 +107,12 @@
       null,
       null,
       null,
+      null,
+      null,
+      null,
+      null,
       null
     ]
   },
-  "hash": "bf8169f13663c523c93632875292687fd2155b07cc580a2cb42ef767d6144bd4"
+  "hash": "896961fa184bff051b6358429bf9d3daa238d97ffc5d947e6f0c5cbb8f46d130"
 }
