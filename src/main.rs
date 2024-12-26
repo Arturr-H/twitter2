@@ -14,7 +14,7 @@ use std::error::Error;
 use sqlx::PgPool;
 use models::{post::Post, user::User};
 use utils::logger::log;
-use handlers::{auth, bookmarks, feed, hashtag, opinion, post, tomato, user};
+use handlers::{auth, bookmarks, feed, post, hashtag, user, opinion};
 
 /* Constants */
 const DATABASE_URL: &'static str = env!("DATABASE_URL");
@@ -70,7 +70,6 @@ async fn main() -> () {
                 .service(user::profile)
                 .service(user::all_handles)
                 .service(user::popular)
-                .service(tomato::get_tomatoes)
             )
             .service(web::scope("/post")
                 .service(post::publish)
@@ -78,7 +77,6 @@ async fn main() -> () {
                 .service(post::set_like)
                 .service(post::set_bookmark)
                 .service(post::post_by_id)
-                .service(tomato::throw_tomato)
                 .service(bookmarks::bookmarks)
 
                 .service(web::scope("/opinion")

@@ -43,9 +43,6 @@ pub struct User {
 
     followers: i32,
     following: i32,
-
-    tomatoes: i32,
-    last_tomato_reset: chrono::DateTime<chrono::Utc>,
 }
 
 /// The version of the user struct that does not 
@@ -103,9 +100,6 @@ impl User {
             email,
             hash,
             salt,
-
-            tomatoes: 5,
-            last_tomato_reset: chrono::Utc::now()
         })
     }
 
