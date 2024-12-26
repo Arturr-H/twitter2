@@ -35,6 +35,7 @@ pub struct PostWithUser {
     pub content: Option<String>,
     pub total_likes: Option<i64>,
     pub total_replies: Option<i64>,
+    pub total_tomatoes: Option<i64>,
     pub poster_id: Option<i64>,
     pub replies_to: Option<Option<i64>>,
     pub citation: Option<Option<serde_json::Value>>,
@@ -51,6 +52,7 @@ pub struct PostWithUser {
     pub liked: Option<bool>,
     pub bookmarked: Option<bool>,
     pub is_followed: Option<bool>,
+    pub has_thrown_tomato: Option<bool>,
 
     pub top_opinions: Option<serde_json::Value>,
 }

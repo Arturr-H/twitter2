@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                post_opinions.id as opinion_id, post_opinions.opinion,\n                is_not_null(post_opinion_votes.user_id) AS \"voted!: bool\",\n                post_opinions.votes\n            FROM\n                post_opinions\n            LEFT JOIN\n                post_opinion_votes\n            ON\n                post_opinions.id = post_opinion_votes.opinion_id\n            WHERE\n                post_opinions.post_id = $1\n            ORDER BY\n                post_opinions.votes DESC;\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "opinion_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "opinion",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "voted!: bool",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 3,
+        "name": "votes",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "46ad894415334b4a26b44ae2245179dbc22142142d411b48c5938f6f709faf63"
+}

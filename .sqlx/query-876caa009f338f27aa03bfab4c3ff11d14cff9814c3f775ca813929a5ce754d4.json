@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM posts WHERE id = $1 AND poster_id = $2;\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "876caa009f338f27aa03bfab4c3ff11d14cff9814c3f775ca813929a5ce754d4"
+}

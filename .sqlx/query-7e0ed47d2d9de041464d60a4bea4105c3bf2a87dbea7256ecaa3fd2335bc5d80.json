@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT posts.* FROM get_posts_default($1) posts\n            JOIN post_bookmarks bm ON posts.id = bm.post_id\n        WHERE\n            bm.user_id = $1;\n    ",
+  "query": "\n        SELECT * FROM get_posts_default($1)\n            WHERE (replies_to IS NULL\n                OR citation IS NOT NULL)\n            ORDER BY created_at DESC;\n    ",
   "describe": {
     "columns": [
       {
@@ -114,5 +114,5 @@
       null
     ]
   },
-  "hash": "37a40e2d38173bf419f676ee2a06e50d12bcbee820fb492269c73d23889fd2fb"
+  "hash": "7e0ed47d2d9de041464d60a4bea4105c3bf2a87dbea7256ecaa3fd2335bc5d80"
 }

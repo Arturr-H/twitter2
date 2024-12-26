@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT posts.* FROM get_posts_default($1) posts\n            JOIN post_bookmarks bm ON posts.id = bm.post_id\n        WHERE\n            bm.user_id = $1;\n    ",
+  "query": "\n        SELECT * FROM get_posts_default($1) posts\n            WHERE posts.poster_id IN (\n                SELECT follows.followee_id FROM follows\n                    WHERE follows.follower_id = $1\n            )\n            OR posts.id IN (\n                SELECT post_id FROM post_likes\n                    WHERE user_id IN (\n                        SELECT follows.followee_id FROM follows\n                            WHERE follows.follower_id = $1\n                    )\n            )\n            \n            AND (posts.replies_to IS NULL\n                OR posts.citation IS NOT NULL)\n            ORDER BY posts.created_at DESC;\n    ",
   "describe": {
     "columns": [
       {
@@ -114,5 +114,5 @@
       null
     ]
   },
-  "hash": "37a40e2d38173bf419f676ee2a06e50d12bcbee820fb492269c73d23889fd2fb"
+  "hash": "a9fa8ea7dd57a624b2428f37a2bdaccb3573b8bb5e1fcb1026864998d1027e48"
 }

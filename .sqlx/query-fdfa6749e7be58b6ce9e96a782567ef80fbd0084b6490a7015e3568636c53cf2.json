@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT \n            users.id as user_id,\n            users.displayname,\n            users.handle,\n            users.following,\n            users.followers,\n\n            -- If is followed by user\n            EXISTS(\n                SELECT 1 FROM follows\n                WHERE follows.follower_id = $2\n                AND follows.followee_id = users.id\n            ) as \"is_followed!: bool\"\n        FROM users WHERE users.id = $1;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "displayname",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "handle",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "following",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "followers",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_followed!: bool",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "fdfa6749e7be58b6ce9e96a782567ef80fbd0084b6490a7015e3568636c53cf2"
+}
